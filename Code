@@ -1,0 +1,95 @@
+//+------------------------------------------------------------------+
+//|                                           Smart Trader RSI.mq5   |
+//|                                        Copyright 2021, YourName  |
+//|                                    https://www.yourwebsite.com   |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2021, YourName"
+#property link      "https://www.yourwebsite.com"
+#property version   "1.00"
+
+// Include necessary library for opening and closing trades
+#include <Trade\Trade.mqh>
+#include <Indicators\Trend.mqh>
+
+// Create an instance of CTrade
+CTrade trade;
+
+// Input parameters
+input double lotSize = 0.01;
+input int rsiPeriod = 14;
+input double takeProfit = 2.0; // 200% profit
+input double stopLoss = 1.0; // 100% loss
+
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    Comment("Smart Trader RSI added to Chart");
+    EventSetMillisecondTimer(40);
+    return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    Comment("Smart Trader RSI removed from Chart");
+    EventKillTimer();
+}
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    string symbol = Symbol();
+    double rsiValue = Check_RSI_Entry(symbol, rsiPeriod);
+
+    // Check if RSI is below 30
+    if (rsiValue < 30)
+    {
+        // Open a buy trade
+        trade.Buy(lotSize, NULL, 0, 0, 0);
+    }
+
+    // Check for open positions
+    int totalPositions = trade.PositionsTotal();
+    for (int i = 0; i < totalPositions; i++)
+    {
+        // Select the position
+        if (trade.PositionSelectByIndex(i))
+        {
+            double positionProfit = trade.PositionGetDouble(POSITION_PROFIT);
+
+            // Check if the profit exceeds the take profit level
+            if (positionProfit >= takeProfit * trade.PositionGetDouble(POSITION_TICKET))
+            {
+                // Close the position
+                trade.PositionClose(trade.PositionGetDouble(POSITION_TICKET));
+            }
+
+            // Check if the position has reached the stop loss level
+            if (positionProfit <= -stopLoss * trade.PositionGetDouble(POSITION_TICKET))
+            {
+                // Close the position
+                trade.PositionClose(trade.PositionGetDouble(POSITION_TICKET));
+            }
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Check RSI entry function                                         |
+//+------------------------------------------------------------------+
+double Check_RSI_Entry(string symbol, int period)
+{
+    double rsiArray[];
+    ArraySetAsSeries(rsiArray, true);
+    int rsiHandle = iRSI(symbol, 0, period, PRICE_CLOSE);
+    int copiedData = CopyBuffer(rsiHandle, 0, 0, 3, rsiArray);
+
+    // Return the current RSI value
+    return rsiArray[0];
+}
